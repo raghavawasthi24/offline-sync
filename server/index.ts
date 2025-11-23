@@ -1,94 +1,112 @@
-// server/server.js
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-const PracticeSession = require("./models/PracticeSession");
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import PracticeSession from "./models/practiceSession";
 
 const app = express();
-app.use(cors());
+
+// Middleware
+app.use(cors({ origin: "*" })); // refine in production for security
 app.use(express.json());
+
+// Basic request logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/offline_practice";
 
 mongoose
   .connect(MONGO_URI)
   .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("Mongo error", err));
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  });
 
-/**
- * Simple API to get all sessions (for initial load)
- */
+// Fetch all non-deleted sessions
 app.get("/api/sessions", async (req, res) => {
   try {
     const sessions = await PracticeSession.find({ deleted: false }).lean();
-    res.json(sessions);
-  } catch (e) {
-    console.error(e);
+    res.status(200).json(sessions);
+  } catch (error) {
+    console.error("Fetch sessions error:", error);
     res.status(500).json({ error: "Failed to fetch sessions" });
   }
 });
 
 /**
- * Sync endpoint
- * Client sends:
- *  - lastSyncAt
- *  - changes: [{ _id, title, content, version, deleted, op }]  // op = "create" | "update" | "delete"
- *
- * Simple conflict rule:
- *  - if serverVersion > client.version => conflict
- *  - else apply client change, increment version
+ * Sync endpoint: applies client changes respecting conflict detection.
+ * Input: {
+ *   lastSyncAt: ISO string,
+ *   changes: [ { _id, title, content, version, deleted, op } ]
+ * }
  */
 app.post("/api/sync", async (req, res) => {
   try {
     const { lastSyncAt, changes } = req.body;
 
+    if (!Array.isArray(changes)) {
+      return res.status(400).json({ error: "Invalid changes array" });
+    }
+
     const conflicts = [];
     const applied = [];
 
-    for (const change of changes || []) {
+    for (const change of changes) {
       const { _id, title, content, version, deleted, op } = change;
+
+      // Defensive checks: skip invalid ops
+      if (!["create", "update", "delete"].includes(op)) {
+        continue;
+      }
+      if (op !== "create" && !_id) {
+        // Update/delete without ID is invalid, skip
+        continue;
+      }
 
       let doc = _id ? await PracticeSession.findById(_id) : null;
 
-      // CREATE
+      // Handle CREATE operation
       if (op === "create") {
         if (doc) {
-          // Already exists – treat as update
+          // Document exists already, treat as update below
         } else {
           const created = await PracticeSession.create({
             title,
             content,
             deleted: !!deleted,
-            version: 1
+            version: 1,
           });
-          applied.push(created);
+          applied.push(created.toObject());
           continue;
         }
       }
 
-      // UPDATE / DELETE
+      // Handle UPDATE/DELETE operation
       if (!doc) {
-        // If no server doc but client thinks it's update: just create with version 1
+        // No existing doc but client sends update/delete - create afresh
         const created = await PracticeSession.create({
           title,
           content,
           deleted: !!deleted,
-          version: 1
+          version: 1,
         });
-        applied.push(created);
+        applied.push(created.toObject());
         continue;
       }
 
-      // Conflict detection
+      // Conflict detection: server has newer version
       if (doc.version > version) {
         conflicts.push({
           server: doc.toObject(),
-          client: change
+          client: change,
         });
         continue;
       }
 
-      // No conflict: apply client's change, bump version
+      // No conflict: apply changes and increment version
       if (op === "delete") {
         doc.deleted = true;
       } else {
@@ -96,28 +114,30 @@ app.post("/api/sync", async (req, res) => {
         if (content !== undefined) doc.content = content;
         if (deleted !== undefined) doc.deleted = deleted;
       }
-      doc.version = doc.version + 1;
+      doc.version += 1;
       await doc.save();
-      applied.push(doc);
+      applied.push(doc.toObject());
     }
 
-    // get server updates after lastSyncAt for merging
+    // Fetch server updates after client's lastSyncAt to merge changes
     let updatedSince = [];
     if (lastSyncAt) {
       updatedSince = await PracticeSession.find({
-        updatedAt: { $gt: new Date(lastSyncAt) }
-      }).lean();
+        updatedAt: { $gt: new Date(lastSyncAt) },
+      })
+        .lean()
+        .exec();
     } else {
-      updatedSince = await PracticeSession.find().lean();
+      updatedSince = await PracticeSession.find().lean().exec();
     }
 
-    res.json({
+    res.status(200).json({
       applied,
       conflicts,
-      updatedSince
+      updatedSince,
     });
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error("Sync error:", error);
     res.status(500).json({ error: "Sync failed" });
   }
 });
