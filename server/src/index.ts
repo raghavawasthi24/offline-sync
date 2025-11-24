@@ -1,7 +1,7 @@
 import * as express from "express";
 import mongoose from "mongoose";
 import * as cors from "cors";
-import PracticeSession from "./models/practiceSession";
+import PracticeSession from "./models/notes.model";
 
 const app = express();
 
@@ -24,6 +24,8 @@ mongoose
     console.error("MongoDB connection error:", err);
     process.exit(1);
   });
+
+app.use(`/${"api"}`, require("./routes/notes.route"));
 
 // Fetch all non-deleted sessions
 app.get("/api/sessions", async (req, res) => {

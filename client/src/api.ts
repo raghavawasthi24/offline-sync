@@ -12,3 +12,13 @@ export async function syncWithServer(payload) {
   const res = await axios.post(`${API_BASE}/api/sync`, payload);
   return res.data;
 }
+
+export async function createNote(payload) {
+  const res = await axios.post(`${API_BASE}/api/create-note`, payload);
+  return res.data;
+}
+
+export async function updateNote(payload) {
+  const res = await axios.patch(`${API_BASE}/api/update-note`, payload);
+  return res.data;
+}
