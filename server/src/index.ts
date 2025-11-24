@@ -1,6 +1,6 @@
-import express from "express";
+import * as express from "express";
 import mongoose from "mongoose";
-import cors from "cors";
+import * as cors from "cors";
 import PracticeSession from "./models/practiceSession";
 
 const app = express();
