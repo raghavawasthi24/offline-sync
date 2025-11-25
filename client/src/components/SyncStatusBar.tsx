@@ -1,17 +1,18 @@
+interface StatusBarI {
+  online: boolean;
+  syncing: boolean;
+}
 
-export default function SyncStatusBar({ online, syncing, lastSyncAt }) {
+export default function SyncStatusBar({ online, syncing }: StatusBarI) {
   return (
     <div
+      className="py-1 px-2 flex justify-between text-sm"
       style={{
-        padding: "8px 12px",
         background: online ? "#e0ffe0" : "#ffe0e0",
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 14
       }}
     >
       <span>{online ? "Online" : "Offline (changes will sync later)"}</span>
-      <span>{syncing ? "Syncing..." : lastSyncAt ? `Last sync: ${new Date(lastSyncAt).toLocaleTimeString()}` : "Never synced"}</span>
+      <span>{syncing && "Syncing..."}</span>
     </div>
   );
 }
