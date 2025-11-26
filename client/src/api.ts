@@ -1,29 +1,46 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type { NotesI } from "./types/notes";
 
-const API_BASE = import.meta.env.VITE_APP_BACKEND_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_BACKEND_URL ?? "http://localhost:5000";
 
-export async function fetchSessionsFromServer() {
-  const res = await axios.get(`${API_BASE}/api/notes`);
-  return res.data;
+const api = axios.create({
+  baseURL: `${API_BASE}/api`,
+  timeout: 8000,
+});
+
+async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
+  try {
+    const res = await request;
+    return res.data;
+  } catch (error) {
+    const err = error as AxiosError;
+    throw new Error(err.response?.data as string || err.message);
+  }
 }
 
-export async function syncWithServer(payload: any) {
-  const res = await axios.post(`${API_BASE}/api/syncNotes`, payload);
-  return res.data;
+export function fetchSessionsFromServer() {
+  return handleRequest<NotesI[]>(api.get("/notes"));
 }
 
-export async function createNote(payload: NotesI) {
-  const res = await axios.post(`${API_BASE}/api/create-note`, payload);
-  return res.data;
+export async function syncWithServer(payload: unknown) {
+  try {
+    return await handleRequest(api.post("/syncNotes", payload));
+  } catch (error) {
+    console.warn("Sync failed. Retrying once...");
+    //retry
+    return await handleRequest(api.post("/syncNotes", payload));
+  }
 }
 
-export async function updateNote(payload: NotesI) {
-  const res = await axios.patch(`${API_BASE}/api/update-note`, payload);
-  return res.data;
+export function createNote(payload: NotesI) {
+  return handleRequest<any>(api.post("/create-note", payload));
 }
 
-export async function deleteNote(id: string) {
-  const res = await axios.delete(`${API_BASE}/api/delete-note/${id}`);
-  return res.data;
+export function updateNote(payload: NotesI) {
+  return handleRequest<NotesI>(api.patch("/update-note", payload));
 }
+
+export function deleteNote(id: string) {
+  return handleRequest(api.delete(`/delete-note/${id}`));
+}
+
