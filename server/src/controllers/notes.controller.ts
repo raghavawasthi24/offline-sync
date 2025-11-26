@@ -40,10 +40,25 @@ const updateNote = async (req: Request, res: Response) => {
   }
 };
 
-
-const syncNotes = async (req, res) => {
+const deleteNote = async (req: Request, res: Response) => {
   try {
+    const { id } = req.params;
 
+    const deletedNote = await NotesModel.findByIdAndDelete(id);
+
+    if (!deletedNote) {
+      return res.status(404).json({ message: "Note not found" });
+    }
+
+    res.status(200).json({ message: "Note deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+const syncNotes = async (req: Request, res: Response) => {
+  try {
     const data = req.body;
 
     if (!Array.isArray(data)) {
@@ -54,43 +69,45 @@ const syncNotes = async (req, res) => {
     const applied = [];
 
     for (const item of data) {
-      console.log("ITEM", item)
-      const note = await NotesModel.findOne({_id: item._id});
+      try {
+        const note = await NotesModel.findOne({ _id: item._id });
 
-      console.log("NOTE", note)
-      if (item.ops === "delete") {
-        await NotesModel.deleteOne(item._id);
-        console.log("Deleted")
-        continue;
+        if (item.ops === "delete" && note) {
+          await NotesModel.findByIdAndDelete(item._id);
+        }
+
+        if (!note && ["create", "update"].includes(item.ops)) {
+          const newNote = new NotesModel(item.changes);
+          await newNote.save();
+        }
+
+        if (note && item.ops === "update") {
+          await NotesModel.findByIdAndUpdate(item._id, item.changes);
+        }
+
+        applied.push(item._id);
+
       }
-
-      if (!note) {
-        const newNote = new NotesModel(item.changes);
-        await newNote.save();
-        applied.push({ _id: newNote._id, action: "created" });
-
-        console.log("creatyed")
-        continue;
+      catch (err) {
+        conflicts.push(item._id);
       }
-
-      await NotesModel.findByIdAndUpdate(item._id, item.changes);
-      console.log("updated")
     }
-
-    console.log("returniung")
     res.status(200).json({
       applied,
       conflicts
     });
-
   } catch (err) {
     console.log(err)
-   }
-
+  }
 }
 
-export { createNote, updateNote, syncNotes };
+const getNotes = async (req: Request, res: Response) => {
+  try {
+    const notes = await NotesModel.find().lean();
+    res.status(200).json(notes);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch sessions" });
+  }
+};
 
-
-
-//https://fry99.cc/slim-desi-gf-deepthroat-blowjob-and-fucking/
+export { createNote, updateNote, syncNotes, deleteNote, getNotes };

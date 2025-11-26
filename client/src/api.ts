@@ -4,7 +4,7 @@ import type { NotesI } from "./types/notes";
 const API_BASE = import.meta.env.REACT_APP_API_BASE || "http://localhost:5000";
 
 export async function fetchSessionsFromServer() {
-  const res = await axios.get(`${API_BASE}/api/sessions`);
+  const res = await axios.get(`${API_BASE}/api/notes`);
   return res.data;
 }
 
@@ -23,7 +23,7 @@ export async function updateNote(payload: NotesI) {
   return res.data;
 }
 
-export async function deleteNote(payload: string) {
-  const res = await axios.delete(`${API_BASE}/api/delete-note`, payload);
+export async function deleteNote(id: string) {
+  const res = await axios.delete(`${API_BASE}/api/delete-note/${id}`);
   return res.data;
 }

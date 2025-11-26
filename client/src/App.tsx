@@ -109,6 +109,7 @@ function App() {
           onSelect={setSelected}
           onCreate={handleCreate}
           onDelete={handleDelete}
+          selectedNote={selected}
         />
         <NotesEditor note={selected} onChange={handleNotesChange} />
       </div>
