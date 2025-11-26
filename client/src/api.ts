@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.VITE_APP_BACKEND_URL ?? "http://localhost:5000"
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
-  timeout: 8000,
+  timeout: 20000,
 });
 
 async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
