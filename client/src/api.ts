@@ -1,7 +1,7 @@
 import axios from "axios";
 import type { NotesI } from "./types/notes";
 
-const API_BASE = import.meta.env.REACT_APP_API_BASE || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_BACKEND_URL || "http://localhost:5000";
 
 export async function fetchSessionsFromServer() {
   const res = await axios.get(`${API_BASE}/api/notes`);
