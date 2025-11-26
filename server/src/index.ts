@@ -3,15 +3,18 @@ import mongoose from "mongoose";
 import * as cors from "cors";
 const app = express();
 
-// Middleware
+require("dotenv").config();
+
 app.use(cors({ origin: "*" }));
 app.use(express.json());
+
+console.log(process.env.MONGO_URI)
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/offline_practice";
 
 mongoose
   .connect(MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
+  .then(() => console.log("MongoDB connected", MONGO_URI))
   .catch((err) => {
     console.error("MongoDB connection error:", err);
     process.exit(1);
